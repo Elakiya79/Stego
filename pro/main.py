@@ -1,31 +1,38 @@
-import os
-from packet_capture import is_vpn_connected, capture_packets
-from anomaly_detector import detect_anomalies
+from packet_capture import get_network_interface, capture_packets
+from anomaly_detector import detect_anomaly, block_user
+from database_manager import save_to_database
 
 def main():
-    print("Checking VPN connection...")
-    if not is_vpn_connected():
-        print("VPN is not connected. Please connect to a VPN and try again.")
+    print("Starting StegoProbe...")
+
+    # Get the network interface for packet capturing
+    interface = get_network_interface()
+    if not interface:
+        print("No valid network interface found. Please check your VPN connection.")
         return
 
-    interface = input("Enter your VPN interface name (e.g., tun0 or vpn): ")
-    output_file = "vpn_capture.pcap"
+    print(f"Capturing packets on interface: {interface}")
 
-    # Step 1: Capture packets
-    print("Starting packet capture...")
-    captured_file = capture_packets(interface, output_file)
+    # Capture packets in real-time
+    captured_packets = capture_packets(interface)
 
-    # Step 2: Detect anomalies
-    print("Starting anomaly detection...")
-    anomalies = detect_anomalies(captured_file)
+    for packet in captured_packets:
+        # Detect anomalies in the packet
+        is_anomalous, anomaly_details = detect_anomaly(packet)
 
-    # Display anomalies
-    if anomalies:
-        print("\nAnomalies Detected:")
-        for anomaly in anomalies:
-            print(anomaly)
-    else:
-        print("No anomalies detected.")
+        if is_anomalous:
+            print(f"Anomaly detected: {anomaly_details}")
+            
+            # Block the user associated with the anomaly
+            user_identifier = anomaly_details.get('user_identifier')
+            block_user(user_identifier)
+            print(f"User {user_identifier} has been blocked permanently.")
+            
+            # Save the detected anomaly and user details to the database
+            save_to_database(user_identifier, anomaly_details)
+            print(f"Anomaly details saved to database for user: {user_identifier}")
+
+    print("Packet monitoring complete. Exiting...")
 
 if __name__ == "__main__":
     main()
