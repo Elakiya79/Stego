@@ -1,36 +1,36 @@
-from packet_capture import get_network_interface, capture_packets
-from anomaly_detector import detect_anomaly, block_user
-from database_manager import initialize_database, save_to_database
+from packet_capture import list_interfaces, capture_packets
+from anomaly_detector import detect_anomalies
+from database_manager import log_anomaly
 
 def main():
-    print("Starting StegoProbe...")
-
-    # Step 1: Initialize the database
-    initialize_database()
-
-    # Step 2: Get the network interface
-    interface = get_network_interface()
-    if not interface:
-        print("No valid interface found. Exiting.")
+    print("\nStarting StegoProbe...\n")
+    
+    # Step 1: List available network interfaces
+    interfaces = list_interfaces()
+    print("Available Network Interfaces:")
+    for interface in interfaces:
+        print(f"  - {interface}")
+    
+    # Step 2: Ask the user to input the VPN interface name
+    selected_interface = input("\nEnter your VPN interface name (e.g., ProtonVPN): ").strip()
+    if selected_interface not in interfaces:
+        print(f"Error: Interface '{selected_interface}' not found. Please check the name and try again.")
         return
 
-    # Step 3: Start capturing packets
-    print(f"Capturing packets on interface: {interface}")
-    captured_packets = capture_packets(interface)
-
-    # Step 4: Process each packet
-    for packet in captured_packets:
-        # Detect anomalies
-        is_anomalous, anomaly_details = detect_anomaly(packet)
-        if is_anomalous:
-            print(f"Anomaly detected: {anomaly_details}")
-
-            # Block the user
-            user_identifier = anomaly_details.get("user_identifier")
-            block_user(user_identifier)
-
-            # Save to database
-            save_to_database(user_identifier, anomaly_details)
+    print(f"\nStarting packet capture on interface: {selected_interface}\n")
+    
+    # Step 3: Start capturing packets and detecting anomalies
+    try:
+        for packet in capture_packets(selected_interface):
+            print(f"Packet Captured: {packet}")
+            anomaly = detect_anomalies(packet)
+            if anomaly:
+                print(f"Anomaly Detected: {anomaly}")
+                log_anomaly(anomaly)
+    except KeyboardInterrupt:
+        print("\nPacket capture stopped by user.")
+    except Exception as e:
+        print(f"\nAn error occurred during packet capture: {e}")
 
 if __name__ == "__main__":
     main()
