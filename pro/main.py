@@ -1,36 +1,50 @@
-from packet_capture import list_interfaces, capture_packets
-from anomaly_detector import detect_anomalies
-from database_manager import log_anomaly
+import pyshark
+import os
+
+def list_interfaces():
+    """Lists all available network interfaces."""
+    try:
+        print("\nAvailable Network Interfaces:\n")
+        os.system("tshark -D")  # Uses tshark to list interfaces
+    except Exception as e:
+        print(f"Error while listing interfaces: {e}")
+
+def capture_packets(interface_name):
+    """Captures packets on the specified interface."""
+    try:
+        print(f"\nStarting packet capture on interface: {interface_name}\n")
+        capture = pyshark.LiveCapture(interface=interface_name)
+        for packet in capture.sniff_continuously():
+            try:
+                if 'IP' in packet:
+                    src_ip = packet.ip.src
+                    dst_ip = packet.ip.dst
+                    print(f"Captured Packet: {src_ip} -> {dst_ip}")
+                else:
+                    print(f"Captured Packet: {packet}")
+            except AttributeError:
+                # Skip packets that don't have expected attributes
+                continue
+    except KeyboardInterrupt:
+        print("\nStopped packet capture.")
+    except Exception as e:
+        print(f"Error during packet capture: {e}")
 
 def main():
-    print("\nStarting StegoProbe...\n")
+    print("Starting StegoProbe...\n")
     
     # Step 1: List available network interfaces
-    interfaces = list_interfaces()
     print("Available Network Interfaces:")
-    for interface in interfaces:
-        print(f"  - {interface}")
+    list_interfaces()
     
-    # Step 2: Ask the user to input the VPN interface name
+    # Step 2: Ask user for the VPN interface name
     selected_interface = input("\nEnter your VPN interface name (e.g., ProtonVPN): ").strip()
-    if selected_interface not in interfaces:
-        print(f"Error: Interface '{selected_interface}' not found. Please check the name and try again.")
-        return
-
-    print(f"\nStarting packet capture on interface: {selected_interface}\n")
     
-    # Step 3: Start capturing packets and detecting anomalies
-    try:
-        for packet in capture_packets(selected_interface):
-            print(f"Packet Captured: {packet}")
-            anomaly = detect_anomalies(packet)
-            if anomaly:
-                print(f"Anomaly Detected: {anomaly}")
-                log_anomaly(anomaly)
-    except KeyboardInterrupt:
-        print("\nPacket capture stopped by user.")
-    except Exception as e:
-        print(f"\nAn error occurred during packet capture: {e}")
+    # Step 3: Start capturing packets on the selected interface
+    if selected_interface:
+        capture_packets(selected_interface)
+    else:
+        print("No interface selected. Exiting...")
 
 if __name__ == "__main__":
     main()
